@@ -1,6 +1,7 @@
-#include "ws.h"
-#include "WS_Frame/frame-send.h"
-#include "WS_Frame/frame.h"
+#include "../headers/ws.h"
+#include "../headers/action_handler.h"
+#include "WS_Frame/headers/frame-send.h"
+#include "WS_Frame/headers/frame.h"
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -135,23 +136,7 @@ void handle_websocket_client(Client *ws_c, Client clients[],
   }
   json json_req_object = parse_websocket_request(ws_buf, ws_recv_status);
   Action action = get_client_action(json_req_object);
-  switch (action) {
-  case Action::CREATE_USER:
-    cout << "This is the create user case \n";
-    break;
-  case Action::CREATE_ROOM:
-
-    break;
-  case Action::VIEW_ROOM:
-    // send suggestion logic
-    break;
-  case Action::ADD_SUGGESTION:
-    // send suggestion logic
-    break;
-  case Action::UNKNOWN:
-    // log error, ignore
-    break;
-  }
+  handle_action(action, json_req_object);
 
   WS_Frame_Client frame_client;
   char client_str[] =

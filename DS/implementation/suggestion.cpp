@@ -1,4 +1,4 @@
-#include "suggestion.h"
+#include "../headers/suggestion.h"
 #include <string>
 using namespace std;
 Suggestion::Suggestion(int suggestion_id, int room_id, int author_id) {

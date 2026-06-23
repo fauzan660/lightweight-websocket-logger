@@ -1,6 +1,6 @@
-#include "common.h"
-#include "http.h"
-#include "ws.h"
+#include "headers/common.h"
+#include "headers/http.h"
+#include "headers/ws.h"
 #include <algorithm>
 #include <cstdio>
 #include <fcntl.h>

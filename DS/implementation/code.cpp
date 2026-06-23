@@ -1,4 +1,4 @@
-#include "code.h"
+#include "../headers/code.h"
 Code::Code() {
   this->code_snippet = "";
   this->error_message = "";
