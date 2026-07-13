@@ -94,3 +94,4 @@ void WS_Frame::parse_payload(uint8_t *data, int data_buf_size) {
   }
 }
 vector<uint8_t> WS_Frame::get_payload_data() { return this->payload_data; }
+uint8_t WS_Frame::get_opcode() { return this->opcode; }

@@ -43,6 +43,27 @@ void parse_request(string message, string &method, string &target,
     }
   }
 }
+string read_http_message(Client *c, char server_buf[]) {
+  string message = "";
+  while (true) {
+    int recv_status = recv(c->fd, server_buf, BUF_SIZE - 1, 0);
+    if (recv_status == 0) {
+      close_socket(c);
+      return "";
+    }
+    if (recv_status < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        break;
+      close_socket(c);
+      return "";
+    }
+    server_buf[recv_status] = '\0';
+    message += string(server_buf, recv_status);
+    if (message.size() > 4 && message.substr(message.size() - 4) == "\r\n\r\n")
+      break;
+  }
+  return message;
+}
 
 void handle_client(Client *c, char server_buf[], char response_buf[],
                    char error_buf[], fd_set &read_sockets,
@@ -54,54 +75,27 @@ void handle_client(Client *c, char server_buf[], char response_buf[],
            "HTTP/1.1 200 OK\r\nContent-Type: text/html; "
            "charset=utf-8\r\nContent-Length: %zu\r\n\r\n%s",
            strlen(body), body);
-
   string method, target, http_version;
   map<string, string> headers_map;
+
   cout << "-------Handling client connections-------" << endl;
-  string message = "";
-  while (true) {
-    int recv_status = recv(c->fd, server_buf, BUF_SIZE - 1, 0);
-    if (recv_status == 0) {
-      perror("recv failed -- timeout --");
-      close_socket(c);
-      break;
-    }
-    if (recv_status < 0) {
-      if (errno == EAGAIN || errno == EWOULDBLOCK)
-        break;
-      perror("recv failed -- connection closed --");
-      close_socket(c);
-      break;
-    }
-    server_buf[recv_status] = '\0';
-    message += string(server_buf, recv_status);
-    if (message.size() > 4 && message.substr(message.size() - 4) == "\r\n\r\n")
-      break;
-  }
+  string message = read_http_message(c, server_buf);
   if (c->fd == -1 || message.empty())
     return;
   cout << "Received message:\n" << message << endl;
   parse_request(message, method, target, http_version, headers_map);
 
-  int client_fd = c->fd;
-  if (target == "/websocket") {
-    printf("request to ws endpoint \n");
-    if (check_request_ws(method, target, http_version, headers_map)) {
-      int status =
-          handle_request_ws(c, headers_map, websocket_clients, clients);
-      if (status <= 0) {
-        perror("request handling failed");
-        ::send(c->fd, error_buf, strlen(error_buf), 0);
-      } else {
-        printf("client %d request handled successfully \n", client_fd);
-      }
+  if (check_request_ws(method, target, http_version, headers_map)) {
+    int status = handle_request_ws(c, headers_map, websocket_clients, clients);
+    if (status <= 0) {
+      perror("request handling failed");
+      ::send(c->fd, error_buf, strlen(error_buf), 0);
     } else {
-      printf("request at ws endpoint is not a websocket request \n");
-      ::send(c->fd, http_buffer, strlen(http_buffer), 0);
-      close(c->fd);
+      printf("client %d request handled successfully \n", c->fd);
     }
   } else {
-    printf("request to http endpoint \n");
-    ::send(c->fd, response_buf, strlen(response_buf), 0);
+    printf("request at ws endpoint is not a websocket request \n");
+    ::send(c->fd, http_buffer, strlen(http_buffer), 0);
+    close(c->fd);
   }
 }

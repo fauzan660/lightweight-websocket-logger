@@ -29,4 +29,5 @@ public:
   WS_Frame();
   void parse(uint8_t *data, int data_buf_size);
   vector<uint8_t> get_payload_data();
+  uint8_t get_opcode();
 };

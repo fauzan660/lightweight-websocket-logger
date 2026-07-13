@@ -2,6 +2,7 @@
 #include "../headers/action_handler.h"
 #include "WS_Frame/headers/frame-send.h"
 #include "WS_Frame/headers/frame.h"
+#include "headers/ws_helpers.h"
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -14,30 +15,6 @@
 #include <vector>
 using namespace std;
 using json = nlohmann::json;
-
-static string encode_key_openssl(string key) {
-  unsigned char hash[SHA_DIGEST_LENGTH];
-  SHA1((unsigned char *)key.c_str(), key.size(), hash);
-  return string(hash, hash + SHA_DIGEST_LENGTH);
-}
-
-static string encode_key_base64(string &key) {
-  string output(((key.size() + 2) / 3) * 4, '\0');
-  EVP_EncodeBlock((unsigned char *)output.data(), (unsigned char *)key.c_str(),
-                  key.size());
-  return output;
-}
-
-static string generate_websocket_response_key(string websocket_request_key) {
-  string concat = websocket_request_key + MAGIC_WEBSOCKET_UUID_STRING;
-  string hashed = encode_key_openssl(concat);
-  if (hashed.empty())
-    return "";
-  string encoded = encode_key_base64(hashed);
-  if (encoded.empty())
-    return "";
-  return encoded;
-}
 
 bool check_request_ws(string method, string target, string http_version,
                       map<string, string> headers_map) {
@@ -93,37 +70,10 @@ int handle_request_ws(Client *c, map<string, string> headers_map,
   }
   return send_status;
 }
-json parse_websocket_request(uint8_t websocket_buffer[], int request_size) {
-  WS_Frame frame;
-  frame.parse(websocket_buffer, request_size);
-  printf("%.*s\n", (int)frame.get_payload_data().size(),
-         frame.get_payload_data().data());
-
-  vector<uint8_t> decoded_req = frame.get_payload_data();
-  string data_recv(reinterpret_cast<char *>(decoded_req.data()),
-                   decoded_req.size());
-
-  json j = json::parse(data_recv.c_str());
-  return j;
-}
-Action get_client_action(json json_object) {
-  string data = json_object["action"];
-  if (data == "CREATE_USER")
-    return Action::CREATE_USER;
-  if (data == "CREATE_ROOM")
-    return Action::CREATE_ROOM;
-  if (data == "VIEW_ROOM_SUGGESTIONS")
-    return Action::VIEW_ROOM_SUGGESTIONS;
-  if (data == "ADD_SUGGESTION")
-    return Action::ADD_SUGGESTION;
-  if (data == "ACCEPT_SUGGESTION")
-    return Action::ACCEPT_SUGGESTION;
-
-  return Action::UNKNOWN;
-}
 
 void handle_websocket_client(Client *ws_c, Client clients[],
                              Client websocket_clients[]) {
+
   static uint8_t ws_buf[WS_BUF_SIZE]; // static = local to this translation unit
 
   int ws_recv_status = ::recv(ws_c->fd, ws_buf, WS_BUF_SIZE - 1, 0);
@@ -137,9 +87,10 @@ void handle_websocket_client(Client *ws_c, Client clients[],
     close_socket(ws_c);
     return;
   }
-  json json_req_object = parse_websocket_request(ws_buf, ws_recv_status);
-  Action action = get_client_action(json_req_object);
-  handle_action(action, json_req_object);
+  parse_websocket_request(ws_buf, ws_recv_status);
+
+  // Action action = get_client_action(json_req_object);
+  // handle_action(action, json_req_object);
 
   WS_Frame_Client frame_client;
   char client_str[] =

@@ -8,7 +8,23 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 using namespace std;
+const char *body = "<HTML><HEAD><TITLE>200 OK</TITLE></HEAD><BODY><H1>200 "
+                   "OK</H1>Welcome.</BODY></HTML>";
+struct ProxyConfig {
+  string target;
+  int port;
+};
 
+ProxyConfig parse_args(int argc, char *argv[]) {
+  ProxyConfig cfg;
+  for (int i = 1; i < argc; i++) {
+    if (string(argv[i]) == "--target")
+      cfg.target = argv[++i];
+    if (string(argv[i]) == "--port")
+      cfg.port = stoi(argv[++i]);
+  }
+  return cfg;
+}
 void close_socket(Client *c) {
   ::close(c->fd);
   c->fd = -1;
@@ -67,9 +83,10 @@ int main() {
   Client clients[MAX_CLIENTS];
   Client websocket_clients[MAX_WS_CLIENTS];
   char server_buf[BUF_SIZE];
-
-  const char *body = "<HTML><HEAD><TITLE>200 OK</TITLE></HEAD><BODY><H1>200 "
-                     "OK</H1>Welcome.</BODY></HTML>";
+  FD_ZERO(&write_sockets);
+  FD_ZERO(&read_sockets);
+  FD_SET(s, &read_sockets);
+  int address_len = sizeof(address);
   char response_buf[1024];
   snprintf(response_buf, sizeof(response_buf),
            "HTTP/1.1 200 OK\r\nContent-Type: text/html; "
@@ -80,17 +97,12 @@ int main() {
   setup_server_socket(s, address, PORT);
   printf("Server listening on port %d\n", PORT);
 
-  int address_len = sizeof(address);
-  FD_ZERO(&write_sockets);
-  FD_ZERO(&read_sockets);
-  FD_SET(s, &read_sockets);
-
   for (int i = 0; i < MAX_CLIENTS; i++)
     clients[i].fd = -1;
   for (int i = 0; i < MAX_WS_CLIENTS; i++)
     websocket_clients[i].fd = -1;
 
-  while (1) {
+  while (true) {
     waitd.tv_sec = 10;
     waitd.tv_usec = 0; // reset every iteration or it decays to 0
     int max_fd = s;
