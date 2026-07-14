@@ -27,7 +27,8 @@ bool check_request_ws(string method, string target, string http_version,
   if (upg == headers_map.end() || upg->second != "websocket")
     return false;
   auto con = headers_map.find("connection");
-  if (con == headers_map.end() || con->second != "upgrade")
+  if (con == headers_map.end() ||
+      (con->second != "upgrade" && con->second != "Upgrade"))
     return false;
   if (headers_map.find("sec-websocket-key") == headers_map.end())
     return false;
@@ -56,13 +57,8 @@ int handle_request_ws(Client *c, map<string, string> headers_map,
     perror("send");
     return -1;
   }
+  printf("send was successful\n");
 
-  for (int j = 0; j < MAX_CLIENTS; j++) {
-    if (clients[j].fd == c->fd) {
-      clients[j].fd = -1;
-      break;
-    }
-  }
   return send_status;
 }
 

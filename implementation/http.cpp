@@ -48,13 +48,14 @@ string read_http_message(Client *c, char server_buf[]) {
   string message = "";
   while (true) {
     int recv_status = recv(c->fd, server_buf, BUF_SIZE - 1, 0);
+    printf("recv_status: %d errno: %d\n", recv_status, errno);
     if (recv_status == 0) {
       close_socket(c);
       return "";
     }
     if (recv_status < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK)
-        break;
+        return message;
       close_socket(c);
       return "";
     }
@@ -82,7 +83,8 @@ int handle_client(Client *c, char server_buf[], char response_buf[],
   cout << "-------Handling client connections-------" << endl;
   string message = read_http_message(c, server_buf);
   if (c->fd == -1 || message.empty()) {
-    printf("HTTP meesage is empty \n");
+    printf("HTTP meesage is empty: not ready yet\n");
+    return -1;
   }
   cout << "Received message:\n" << message << endl;
   parse_request(message, method, target, http_version, headers_map);
@@ -95,6 +97,12 @@ int handle_client(Client *c, char server_buf[], char response_buf[],
     } else {
       int server_fd = connect_to_target(server_target);
       printf("client %d request handled successfully \n", c->fd);
+      for (int j = 0; j < MAX_CLIENTS; j++) {
+        if (clients[j].fd == c->fd) {
+          clients[j].fd = -1;
+          break;
+        }
+      }
 
       return server_fd;
     }
