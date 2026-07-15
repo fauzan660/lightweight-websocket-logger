@@ -24,6 +24,10 @@ void log_frame(uint8_t *buf, int size, const string &direction) {
   case 0x2:
     opcode_str = "binary";
     break;
+  case 0x8:
+    opcode_str = "close";
+    break;
+
   case 0x9:
     opcode_str = "ping";
     break;
